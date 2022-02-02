@@ -1,3 +1,4 @@
+import numpy as np
 class ME461Group:
     '''
     This is the random player used in the colab example.
