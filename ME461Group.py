@@ -1,4 +1,5 @@
 import numpy as np
+import time
 class ME461Group:
     '''
     This is the random player used in the colab example.
