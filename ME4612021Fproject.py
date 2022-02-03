@@ -353,6 +353,9 @@ class LetsPlayAGame():
                 rr.append({'Playername':pk, 'player':player, 'path':path, 'time2run':tExec})
             else:
                 printIF(f'{pk} did not play, no points left', debugMode)
+        # if no one can play return
+        if len(rr) < 1: 
+            return [], 'No one left to play'
         # now sort players in terms of their speed if there is more than 1 player
         rr_ranked = sorted(rr, key = lambda d: d['time2run'])
         fTime = rr_ranked[0]["time2run"] # fastest time
