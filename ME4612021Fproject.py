@@ -44,8 +44,6 @@ colorz = {
         'clr1':((100, 10, 200),1, 3)
 }
 pathPen = (255,0,0) # red spared for drawing paths
-# initial points in the game for each player
-Pinit = 301
 
 maxTime = 0.2 # number of seconds allowed for a player to return from run()
 
@@ -334,23 +332,27 @@ class LetsPlayAGame():
         info = LetsPlayAGame.GenerateInfo(self.Players)
         res = {} # keeps track of user reponse and path
         rr = [] # used for sorting / ranking returned results
+        mess = '' # message to return at the end
         # send info to all players
         for pk in self.Players:
             player = self.Players[pk][0] # get the player object
-            tStart = time.time()
-            signal.setitimer(signal.ITIMER_REAL, timeout_for_players)
-            #path = player.run(self.maze, info)
-            try:
-                path = player.run(self.maze, info)
-            except Exception as e:
-                print(f'{pk} failed!!!\n')
-                path = []
-            signal.setitimer(signal.ITIMER_REAL, timeout_for_game)
-            tExec = time.time() - tStart
-            # log result for the current player, -1 is number of pixels to cover and to be updated later
-            res[pk] = [player, path, tExec, -1]
-            rr.append({'Playername':pk, 'player':player, 'path':path, 'time2run':tExec})
-
+            # player can only play if it has some positive points
+            if self.Players[pk][-1] > 0:
+                tStart = time.time()
+                signal.setitimer(signal.ITIMER_REAL, timeout_for_players)
+                #path = player.run(self.maze, info)
+                try:
+                    path = player.run(self.maze, info)
+                except Exception as e:
+                    print(f'{pk} failed!!!\n')
+                    path = []
+                signal.setitimer(signal.ITIMER_REAL, timeout_for_game)
+                tExec = time.time() - tStart
+                # log result for the current player, -1 is number of pixels to cover and to be updated later
+                res[pk] = [player, path, tExec, -1]
+                rr.append({'Playername':pk, 'player':player, 'path':path, 'time2run':tExec})
+            else:
+                printIF(f'{pk} did not play, no points left', debugMode)
         # now sort players in terms of their speed if there is more than 1 player
         rr_ranked = sorted(rr, key = lambda d: d['time2run'])
         fTime = rr_ranked[0]["time2run"] # fastest time
@@ -360,14 +362,15 @@ class LetsPlayAGame():
         for fp in rr_ranked: # go from fastest to slowest
             pk = fp['Playername'] # get player name / key
             # calculate distance for each player
-            if len(self.Players.keys()) > 1:
+            if len(Players.keys()) > 1:
                 res[pk][3] = int(self.maxStep/2 + self.maxStep/2 * (1- (res[pk][2]-fTime)/(sTime-fTime)) )
             else:
                 res[pk][3] = self.maxStep
             # validate path, check if current player can go for res[pk][3] pixels
             LetsPlayAGame.printIF(f'{"{0:.>10}".format(pk)} returned in {round(res[pk][2], 4)} \t step size: {res[pk][3]}', debugMode)
-            pPath = [self.Players[pk][2], *res[pk][1]] # proposed path from the current point on
+            pPath = [self.Players[pk][-2], *res[pk][1]] # proposed path from the current point on
             tPath = self.aMaze.TrimPath(pPath, res[pk][3], debugMode)     # trim propsoed path
+            self.Players[pk][2].append([pPath, tPath, res[pk][2]]) # keep a history of proposed and accepted paths
             LetsPlayAGame.printIF(f'proposed path:{pPath}, \nresulting path:{tPath}\n', debugMode)
             # update path on res
             res[pk][1] = tPath
@@ -377,22 +380,28 @@ class LetsPlayAGame():
         winners = self.aMaze.AnnounceWinners()
         self.aMaze.paint(self.maze)
         self.aMaze.paint(self.pmaze, True)
+        # prepare message and draw the result on pmaze
         for pk in self.Players:
-            # if pk is a winner:
-            if pk in winners.keys():
-                self.Players[pk][3] -= winners[pk]
-                print(f'{"{0: >10}".format(pk)}({self.Players[pk][1]}) currently has {self.Players[pk][3]} points -> {self.Players[pk][3] + winners[pk]}-{winners[pk]}={self.Players[pk][3]}')
+            # if pk is a winner of more than 0 points provide details:
+            if pk in winners.keys() and winners[pk] > 0: 
+                self.Players[pk][-1] -= winners[pk]
+                mess += f'{"{0: >10}".format(pk)}({self.Players[pk][1]}) currently has {self.Players[pk][-1]} points -> {self.Players[pk][-1] + winners[pk]}-{winners[pk]}={self.Players[pk][-1]}\n'
+                self.Players[pk][2][-1].append(winners[pk])
             else:
-                print(f'{"{0: >10}".format(pk)}({self.Players[pk][1]}) currently has {self.Players[pk][3]} points')
+                mess += f'{"{0: >10}".format(pk)}({self.Players[pk][1]}) currently has {self.Players[pk][-1]} points\n'
+                self.Players[pk][2][-1].append(0)
+            # update is required on the image if the player could have played, i.e. it has non-zero points
+            if self.Players[pk][-1] > 0:
+                fullP = res[pk][1] #[ Players[pk][2], *res[pk][1]]
+                LetsPlayAGame.printIF(fullP, debugMode)
+                self.aMaze.DrawPolyLine(self.pmaze, fullP, header = self.digits[self.Players[pk][1]])
+                # assume last point in fullP is reachable 
+                self.Players[pk][-2] = fullP[-1]
 
-        for pk in self.Players:
-            fullP = res[pk][1] #[ Players[pk][2], *res[pk][1]]
-            LetsPlayAGame.printIF(fullP, debugMode)
-            self.aMaze.DrawPolyLine(self.pmaze, fullP, header = self.digits[self.Players[pk][1]])
-            # assume last point in fullP is reachable 
-            self.Players[pk][2] = fullP[-1]
         # finally increment step
         self.numSteps += 1
+        # finally return the winners that has more than 0 points, and a session summary
+        return {f'{pk}':winners[pk] for pk in winners.keys() if winners[pk]>0}, mess
 
     @staticmethod
     def GenerateInfo(Players):
