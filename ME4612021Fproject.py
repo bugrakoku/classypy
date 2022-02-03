@@ -357,12 +357,14 @@ class LetsPlayAGame():
         rr_ranked = sorted(rr, key = lambda d: d['time2run'])
         fTime = rr_ranked[0]["time2run"] # fastest time
         sTime = rr_ranked[-1]["time2run"] # slowest time
+        print(f'{fTime}:{sTime}')
         LetsPlayAGame.printIF(f'fastest in:{fTime} slowest in: {sTime}\n', debugMode)
+
         # best goes for maxStep, worst goes for maxStep/2, update all players coverage
         for fp in rr_ranked: # go from fastest to slowest
             pk = fp['Playername'] # get player name / key
             # calculate distance for each player
-            if len(self.Players.keys()) > 1:
+            if len(rr_ranked)  > 1:
                 res[pk][3] = int(self.maxStep/2 + self.maxStep/2 * (1- (res[pk][2]-fTime)/(sTime-fTime)) )
             else:
                 res[pk][3] = self.maxStep
@@ -382,6 +384,13 @@ class LetsPlayAGame():
         self.aMaze.paint(self.pmaze, True)
         # prepare message and draw the result on pmaze
         for pk in self.Players:
+            # update is required on the image if the player could have played, i.e. it has non-zero points
+            if self.Players[pk][-1] > 0:
+                fullP = res[pk][1] #[ Players[pk][2], *res[pk][1]]
+                LetsPlayAGame.printIF(fullP, debugMode)
+                self.aMaze.DrawPolyLine(self.pmaze, fullP, header = self.digits[self.Players[pk][1]])
+                # assume last point in fullP is reachable 
+                self.Players[pk][-2] = fullP[-1]
             # if pk is a winner of more than 0 points provide details:
             if pk in winners.keys() and winners[pk] > 0: 
                 self.Players[pk][-1] -= winners[pk]
@@ -390,13 +399,6 @@ class LetsPlayAGame():
             else:
                 mess += f'{"{0: >10}".format(pk)}({self.Players[pk][1]}) currently has {self.Players[pk][-1]} points\n'
                 self.Players[pk][2][-1].append(0)
-            # update is required on the image if the player could have played, i.e. it has non-zero points
-            if self.Players[pk][-1] > 0:
-                fullP = res[pk][1] #[ Players[pk][2], *res[pk][1]]
-                LetsPlayAGame.printIF(fullP, debugMode)
-                self.aMaze.DrawPolyLine(self.pmaze, fullP, header = self.digits[self.Players[pk][1]])
-                # assume last point in fullP is reachable 
-                self.Players[pk][-2] = fullP[-1]
 
         # finally increment step
         self.numSteps += 1
