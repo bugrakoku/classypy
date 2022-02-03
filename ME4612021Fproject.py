@@ -95,6 +95,11 @@ def printIF(mess, printIt):
     if printIt:
         print(mess)
 
+def TotalPoints():
+    res = 0
+    for clr in colorz:
+        res += colorz[clr][1] * colorz[clr][2]
+    return res
 
 # a class to manage bases, a bases is nothing but one of those colored squres on the maze
 class aBase():
@@ -227,6 +232,13 @@ class daMaze():
             if pt > -1: # this is not john doe
                 res[pk] = pt
         return res
+    
+    def RemainingPoints(self):
+        # returns the remaining points on the current game board
+        res = 0
+        for baseK in self.bases:
+            res += self.bases[baseK].points
+        return res
 
     def DrawPolyLine(self, img, cList, header = None, dpen = (255,0,0)):
         '''
@@ -248,16 +260,6 @@ class daMaze():
             if xL + w >= W:
                 xL = W - w - 2
             img[yL:yL+h, xL:xL+w, 1] = header 
-
-    def GenerateInfo(self, Players):
-        '''
-        Strips the internal data structure that keeps track of players into a verion
-        that can be sent to the run() function of players
-        '''
-        info = {}
-        for player in Players:
-            info[player] = Players[player][2:]
-        return info
 
     def TrimPath(self, path, L, debugMode = False):
         '''
@@ -300,3 +302,118 @@ class daMaze():
                     printIF(f'moving Y {np.sign(dy)*distRemaining} from {[y1,x1]} to {[y1+np.sign(dy)*distRemaining,x1]}', debugMode)
                 return res
         return res
+
+
+class LetsPlayAGame():
+    def __init__(self, Players, initial_locations, numCorridors, colorz, imageSize, digits, maxStep):
+        self.numSteps = 0
+        self.numBoards = 0
+        self.nCorr = numCorridors
+        self.colorz = colorz
+        self.imSize = imageSize
+        self.maxStep = maxStep
+        # keep track of players
+        self.Players = Players
+        # set up a new board
+        self.ResetBoard()
+        # set the digits library for the bases
+        self.digits = digits
+        aBase.digits = digits
+
+    # generate new board
+    def ResetBoard(self):
+        self.aMaze = daMaze(self.nCorr, self.colorz)
+        self.maze = np.ones((self.imSize,self.imSize,3), dtype=np.uint8) * 255 # mask is white
+        self.pmaze = self.maze.copy()
+        self.aMaze.paint(self.maze)
+        self.aMaze.paint(self.pmaze, True)
+        self.numBoards += 1
+ 
+    def PlayAStep(self, debugMode = False):
+        # generate info
+        info = LetsPlayAGame.GenerateInfo(self.Players)
+        res = {} # keeps track of user reponse and path
+        rr = [] # used for sorting / ranking returned results
+        # send info to all players
+        for pk in self.Players:
+            player = self.Players[pk][0] # get the player object
+            tStart = time.time()
+            signal.setitimer(signal.ITIMER_REAL, timeout_for_players)
+            #path = player.run(self.maze, info)
+            try:
+                path = player.run(self.maze, info)
+            except Exception as e:
+                print(f'{pk} failed!!!\n')
+                path = []
+            signal.setitimer(signal.ITIMER_REAL, timeout_for_game)
+            tExec = time.time() - tStart
+            # log result for the current player, -1 is number of pixels to cover and to be updated later
+            res[pk] = [player, path, tExec, -1]
+            rr.append({'Playername':pk, 'player':player, 'path':path, 'time2run':tExec})
+
+        # now sort players in terms of their speed if there is more than 1 player
+        rr_ranked = sorted(rr, key = lambda d: d['time2run'])
+        fTime = rr_ranked[0]["time2run"] # fastest time
+        sTime = rr_ranked[-1]["time2run"] # slowest time
+        LetsPlayAGame.printIF(f'fastest in:{fTime} slowest in: {sTime}\n', debugMode)
+        # best goes for maxStep, worst goes for maxStep/2, update all players coverage
+        for fp in rr_ranked: # go from fastest to slowest
+            pk = fp['Playername'] # get player name / key
+            # calculate distance for each player
+            if len(Players.keys()) > 1:
+                res[pk][3] = int(self.maxStep/2 + self.maxStep/2 * (1- (res[pk][2]-fTime)/(sTime-fTime)) )
+            else:
+                res[pk][3] = self.maxStep
+            # validate path, check if current player can go for res[pk][3] pixels
+            LetsPlayAGame.printIF(f'{"{0:.>10}".format(pk)} returned in {round(res[pk][2], 4)} \t step size: {res[pk][3]}', debugMode)
+            pPath = [Players[pk][2], *res[pk][1]] # proposed path from the current point on
+            tPath = self.aMaze.TrimPath(pPath, res[pk][3], debugMode)     # trim propsoed path
+            LetsPlayAGame.printIF(f'proposed path:{pPath}, \nresulting path:{tPath}\n', debugMode)
+            # update path on res
+            res[pk][1] = tPath
+            self.aMaze.registerPath(self.maze, tPath, pk, res[pk][3])
+
+        # get the winners of the current round and update points to complete the step
+        winners = self.aMaze.AnnounceWinners()
+        self.aMaze.paint(self.maze)
+        self.aMaze.paint(self.pmaze, True)
+        for pk in self.Players:
+            # if pk is a winner:
+            if pk in winners.keys():
+                self.Players[pk][3] -= winners[pk]
+                print(f'{"{0: >10}".format(pk)}({self.Players[pk][1]}) currently has {self.Players[pk][3]} points -> {self.Players[pk][3] + winners[pk]}-{winners[pk]}={self.Players[pk][3]}')
+            else:
+                print(f'{"{0: >10}".format(pk)}({self.Players[pk][1]}) currently has {self.Players[pk][3]} points')
+
+        for pk in self.Players:
+            fullP = res[pk][1] #[ Players[pk][2], *res[pk][1]]
+            LetsPlayAGame.printIF(fullP, debugMode)
+            self.aMaze.DrawPolyLine(self.pmaze, fullP, header = self.digits[self.Players[pk][1]])
+            # assume last point in fullP is reachable 
+            self.Players[pk][2] = fullP[-1]
+        # finally increment step
+        self.numSteps += 1
+
+    @staticmethod
+    def GenerateInfo(Players):
+        '''
+        Strips the internal data structure that keeps track of players into a verion
+        that can be sent to the run() function of players
+        '''
+        info = {}
+        for gName in Players:
+            # just return the last 2 elements in the list, this is all the players need
+            # rest is for management of the game
+            info[gName] = Players[gName][-2:] 
+        return info
+    
+    @staticmethod
+    def printIF(mess, printIt):
+        '''
+        pretty straight forward, but very useful, but time consuming, 
+        consinder not using at all if performance is your ultimage issue, 
+        and you make zillions of calls to this function
+        '''
+        if printIt:
+            print(mess)
+        
