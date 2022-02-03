@@ -360,13 +360,13 @@ class LetsPlayAGame():
         for fp in rr_ranked: # go from fastest to slowest
             pk = fp['Playername'] # get player name / key
             # calculate distance for each player
-            if len(Players.keys()) > 1:
+            if len(self.Players.keys()) > 1:
                 res[pk][3] = int(self.maxStep/2 + self.maxStep/2 * (1- (res[pk][2]-fTime)/(sTime-fTime)) )
             else:
                 res[pk][3] = self.maxStep
             # validate path, check if current player can go for res[pk][3] pixels
             LetsPlayAGame.printIF(f'{"{0:.>10}".format(pk)} returned in {round(res[pk][2], 4)} \t step size: {res[pk][3]}', debugMode)
-            pPath = [Players[pk][2], *res[pk][1]] # proposed path from the current point on
+            pPath = [self.Players[pk][2], *res[pk][1]] # proposed path from the current point on
             tPath = self.aMaze.TrimPath(pPath, res[pk][3], debugMode)     # trim propsoed path
             LetsPlayAGame.printIF(f'proposed path:{pPath}, \nresulting path:{tPath}\n', debugMode)
             # update path on res
