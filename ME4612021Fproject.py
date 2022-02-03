@@ -362,7 +362,7 @@ class LetsPlayAGame():
         for fp in rr_ranked: # go from fastest to slowest
             pk = fp['Playername'] # get player name / key
             # calculate distance for each player
-            if len(Players.keys()) > 1:
+            if len(self.Players.keys()) > 1:
                 res[pk][3] = int(self.maxStep/2 + self.maxStep/2 * (1- (res[pk][2]-fTime)/(sTime-fTime)) )
             else:
                 res[pk][3] = self.maxStep
