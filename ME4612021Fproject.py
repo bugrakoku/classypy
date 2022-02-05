@@ -147,16 +147,21 @@ class aBase():
         self.points = 0
         self.color = (0,0,0)
     
-    def regsiterEntry(self, pk, speed):
+    def registerEntry(self, pk, steps, execTime):
         # register those who enter the base at the same time step
         # then the winner will be the one with maximum step
-        self.guests.append({'ID':pk, 'Remaining': speed})
+        self.guests.append({'ID':pk, 'Remaining': steps, 'Execution': execTime})
 
     def andTheWinnerIs(self):
         # return winner if there is one
         if len(self.guests) > 0:
             resSorted = sorted(self.guests, key = lambda d: d['Remaining'])
-            winner = resSorted[-1]
+            winnerz = []
+            for guest in resSorted:
+                if guest['Remaining'] == resSorted[-1]['Remaining']: # in case of equality, faster returned code wins
+                    winnerz.append({'ID':guest['ID'], 'Execution': guest['Execution']})
+            res2Sorted = sorted(winnerz, key = lambda d: d['Execution']) # we assume that the execution times will not be equal in practice
+            winner = res2Sorted[0] # this is the winning player
             pointsWon = self.points
             self.__back2black__()
             return winner['ID'], pointsWon
@@ -182,7 +187,7 @@ class daMaze():
         coordz = [(i,j) for i in range(1,self.nCorr) for j in range(1,self.nCorr)]
         random.shuffle(coordz)
         # color bases
-        for Dclr in self.colorz.keys():
+        for Dclr in self.colorz:
             clr, clrN = self.colorz[Dclr][0], self.colorz[Dclr][2] # get color and its base value using the current key
             # color as many times as this color needs to show up in the maze
             for i in range(clrN):
@@ -195,7 +200,7 @@ class daMaze():
         for baseK in self.bases:
             self.bases[baseK].paint(img, ShowPoints)
     
-    def registerPath(self, img, path, playerKey, speed):
+    def registerPath(self, img, path, playerKey, remSteps, execTime):
         '''
         path is registered for player playerKey with speed
         '''
@@ -209,7 +214,7 @@ class daMaze():
             else: # moving along X
                 ind = [[y1, x] for x in range(x1+np.sign(x2-x1), x2, np.sign(x2-x1))]
             for [yi,xi] in ind:
-                speed -= 1 # decrement speed
+                remSteps -= 1 # decrement speed
                 pixcolor = img[yi,xi,:]
                 if not ((pixcolor == basecolors).all(axis=1)).any(): # if this is a new color register it
                     if not ((pixcolor == newcolors).all(axis=1)).any():
@@ -217,7 +222,7 @@ class daMaze():
                         xind = int((xi+99)/100) 
                         bKey = f'{yind},{xind}'
                         # register this user in the base
-                        self.bases[bKey].regsiterEntry(playerKey, speed)
+                        self.bases[bKey].registerEntry(playerKey, remSteps, execTime)
                         newcolors.append(pixcolor)
                 else: # back on no point point region
                     newcolors = [np.array([-1,-1,-1])]
@@ -338,7 +343,7 @@ class LetsPlayAGame():
             player = self.Players[pk][0] # get the player object
             # player can only play if it has some positive points
             if self.Players[pk][-1] > 0:
-                tStart = time.time()
+                tStart = time.perf_counter()
                 signal.setitimer(signal.ITIMER_REAL, timeout_for_players)
                 #path = player.run(self.maze, info)
                 try:
@@ -347,7 +352,7 @@ class LetsPlayAGame():
                     print(f'{pk} failed!!!\n')
                     path = []
                 signal.setitimer(signal.ITIMER_REAL, timeout_for_game)
-                tExec = time.time() - tStart
+                tExec = time.perf_counter() - tStart
                 # log result for the current player, -1 is number of pixels to cover and to be updated later
                 res[pk] = [player, path, tExec, -1]
                 rr.append({'Playername':pk, 'player':player, 'path':path, 'time2run':tExec})
@@ -379,7 +384,7 @@ class LetsPlayAGame():
             LetsPlayAGame.printIF(f'proposed path:{pPath}, \nresulting path:{tPath}\n', debugMode)
             # update path on res
             res[pk][1] = tPath
-            self.aMaze.registerPath(self.maze, tPath, pk, res[pk][3])
+            self.aMaze.registerPath(self.maze, tPath, pk, res[pk][3], res[pk][2])
 
         # get the winners of the current round and update points to complete the step
         winners = self.aMaze.AnnounceWinners()
