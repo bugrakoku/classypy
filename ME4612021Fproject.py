@@ -109,6 +109,7 @@ class aBase():
         self.color = color
         self.points = points
         self.guests = []
+        self.baseTaken = False
         # define the image for points
         # c1 = np.concatenate((digits[1], digits[0], 255*np.ones((7,1)), digits[0]), axis = 1)
         ds = {f'{d}':d for d in range(10)} # get a string key for a digit from 0 to 9
@@ -144,13 +145,16 @@ class aBase():
     def __back2black__(self):
         # someone conquered this bases, points are granted, goes back to black
         self.name = 'black'
-        self.points = 0
-        self.color = (0,0,0)
+        #self.points = 0
+        self.baseTaken = True
+        self.color = (1,1,1)
+        self.guests = []
     
     def registerEntry(self, pk, steps, execTime):
         # register those who enter the base at the same time step
         # then the winner will be the one with maximum step
-        self.guests.append({'ID':pk, 'Remaining': steps, 'Execution': execTime})
+        if not self.baseTaken:
+            self.guests.append({'ID':pk, 'Remaining': steps, 'Execution': execTime})
 
     def andTheWinnerIs(self):
         # return winner if there is one
@@ -280,30 +284,33 @@ class daMaze():
             printIF(f'remaining distance: {distRemaining}', debugMode)
             if distRemaining <= 0:
                 return res
+            # get the points and their coordinates explicitly
             p1, p2 = path[i], path[i+1] # get two consequitive point coordinates
             y1, x1 = path[i][0], path[i][1]
             y2, x2 = path[i+1][0], path[i+1][1]
             dy = y2 - y1 #p2[0] - p1[0]
             dx = x2 - x1 #p2[1] - p1[1]
             # one of these has to be zero on a N4 path
-            if abs(dx) >0 and abs(dy)>0: # we have a problem, on eof them has to be zero on a N4 path
+            if abs(dx) >0 and abs(dy)>0: # we have a problem, one of them has to be zero on a N4 path
                 # just return the valid path found so far
                 return res
-            pathL = max(abs(dy), abs(dx)) # length between p1-p2
-            if pathL <= distRemaining: # this part of the path (p1 to p2) completely belongs to the resulting path
-                res.append(p2)
-                distRemaining -= pathL
-                printIF(f'moving {pathL} from {[y1,x1]} to {[y2,x2]}', debugMode)
-            else: # this is the tricky part, some part of the path will belong
-                # partial path should expand either in X or Y direction
-                # note that either dx or dy has to be zero at all times
-                if abs(dx) > 0: # going in X direction
-                    res.append([y1, x1+np.sign(dx)*distRemaining])
-                    printIF(f'moving X {np.sign(dx)*distRemaining} from {[y1,x1]} to {[y1,x1+np.sign(dx)*distRemaining]}', debugMode)
-                else: # going in Y direction
-                    res.append([y1+np.sign(dy)*distRemaining, x1])
-                    printIF(f'moving Y {np.sign(dy)*distRemaining} from {[y1,x1]} to {[y1+np.sign(dy)*distRemaining,x1]}', debugMode)
-                return res
+            # we also have a problem if consequtive points are the same, if so just ignore the latest one
+            if not(dx == 0 and dy == 0): # 
+                pathL = max(abs(dy), abs(dx)) # length between p1-p2
+                if pathL <= distRemaining: # this part of the path (p1 to p2) completely belongs to the resulting path
+                    res.append(p2)
+                    distRemaining -= pathL
+                    printIF(f'moving {pathL} from {[y1,x1]} to {[y2,x2]}', debugMode)
+                else: # this is the tricky part, some part of the path will belong
+                    # partial path should expand either in X or Y direction
+                    # note that either dx or dy has to be zero at all times
+                    if abs(dx) > 0: # going in X direction
+                        res.append([y1, x1+np.sign(dx)*distRemaining])
+                        printIF(f'moving X {np.sign(dx)*distRemaining} from {[y1,x1]} to {[y1,x1+np.sign(dx)*distRemaining]}', debugMode)
+                    else: # going in Y direction
+                        res.append([y1+np.sign(dy)*distRemaining, x1])
+                        printIF(f'moving Y {np.sign(dy)*distRemaining} from {[y1,x1]} to {[y1+np.sign(dy)*distRemaining,x1]}', debugMode)
+                    return res
         return res
 
 
