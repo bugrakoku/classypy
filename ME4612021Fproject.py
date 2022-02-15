@@ -244,7 +244,8 @@ class daMaze():
         # returns the remaining points on the current game board
         res = 0
         for baseK in self.bases:
-            res += self.bases[baseK].points
+            if not self.bases[baseK].baseTaken:
+                res += self.bases[baseK].points
         return res
 
     def DrawPolyLine(self, img, cList, header = None, dpen = (255,0,0)):
@@ -286,31 +287,34 @@ class daMaze():
                 return res
             # get the points and their coordinates explicitly
             p1, p2 = path[i], path[i+1] # get two consequitive point coordinates
-            y1, x1 = path[i][0], path[i][1]
-            y2, x2 = path[i+1][0], path[i+1][1]
-            dy = y2 - y1 #p2[0] - p1[0]
-            dx = x2 - x1 #p2[1] - p1[1]
-            # one of these has to be zero on a N4 path
-            if abs(dx) >0 and abs(dy)>0: # we have a problem, one of them has to be zero on a N4 path
-                # just return the valid path found so far
-                return res
-            # we also have a problem if consequtive points are the same, if so just ignore the latest one
-            if not(dx == 0 and dy == 0): # 
-                pathL = max(abs(dy), abs(dx)) # length between p1-p2
-                if pathL <= distRemaining: # this part of the path (p1 to p2) completely belongs to the resulting path
-                    res.append(p2)
-                    distRemaining -= pathL
-                    printIF(f'moving {pathL} from {[y1,x1]} to {[y2,x2]}', debugMode)
-                else: # this is the tricky part, some part of the path will belong
-                    # partial path should expand either in X or Y direction
-                    # note that either dx or dy has to be zero at all times
-                    if abs(dx) > 0: # going in X direction
-                        res.append([y1, x1+np.sign(dx)*distRemaining])
-                        printIF(f'moving X {np.sign(dx)*distRemaining} from {[y1,x1]} to {[y1,x1+np.sign(dx)*distRemaining]}', debugMode)
-                    else: # going in Y direction
-                        res.append([y1+np.sign(dy)*distRemaining, x1])
-                        printIF(f'moving Y {np.sign(dy)*distRemaining} from {[y1,x1]} to {[y1+np.sign(dy)*distRemaining,x1]}', debugMode)
+            try:
+                y1, x1 = path[i][0], path[i][1]
+                y2, x2 = path[i+1][0], path[i+1][1]
+                dy = y2 - y1 #p2[0] - p1[0]
+                dx = x2 - x1 #p2[1] - p1[1]
+                # one of these has to be zero on a N4 path
+                if abs(dx) >0 and abs(dy)>0: # we have a problem, one of them has to be zero on a N4 path
+                    # just return the valid path found so far
                     return res
+                # we also have a problem if consequtive points are the same, if so just ignore the latest one
+                if not(dx == 0 and dy == 0): # 
+                    pathL = max(abs(dy), abs(dx)) # length between p1-p2
+                    if pathL <= distRemaining: # this part of the path (p1 to p2) completely belongs to the resulting path
+                        res.append(p2)
+                        distRemaining -= pathL
+                        printIF(f'moving {pathL} from {[y1,x1]} to {[y2,x2]}', debugMode)
+                    else: # this is the tricky part, some part of the path will belong
+                        # partial path should expand either in X or Y direction
+                        # note that either dx or dy has to be zero at all times
+                        if abs(dx) > 0: # going in X direction
+                            res.append([y1, x1+np.sign(dx)*distRemaining])
+                            printIF(f'moving X {np.sign(dx)*distRemaining} from {[y1,x1]} to {[y1,x1+np.sign(dx)*distRemaining]}', debugMode)
+                        else: # going in Y direction
+                            res.append([y1+np.sign(dy)*distRemaining, x1])
+                            printIF(f'moving Y {np.sign(dy)*distRemaining} from {[y1,x1]} to {[y1+np.sign(dy)*distRemaining,x1]}', debugMode)
+                        return res
+            except:
+                printIF(f'most probably {p1}:{p2} did not correspond to a path', debugMode)
         return res
 
 
@@ -386,6 +390,7 @@ class LetsPlayAGame():
             # validate path, check if current player can go for res[pk][3] pixels
             LetsPlayAGame.printIF(f'{"{0:.>10}".format(pk)} returned in {round(res[pk][2], 4)} \t step size: {res[pk][3]}', debugMode)
             pPath = [self.Players[pk][-2], *res[pk][1]] # proposed path from the current point on
+            LetsPlayAGame.printIF(f'trimmin: {pPath}', debugMode)
             tPath = self.aMaze.TrimPath(pPath, res[pk][3], debugMode)     # trim propsoed path
             self.Players[pk][2].append([pPath, tPath, res[pk][2]]) # keep a history of proposed and accepted paths
             LetsPlayAGame.printIF(f'proposed path:{pPath}, \nresulting path:{tPath}\n', debugMode)
@@ -442,4 +447,3 @@ class LetsPlayAGame():
         '''
         if printIt:
             print(mess)
-        
