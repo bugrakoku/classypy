@@ -155,7 +155,7 @@ class aBase():
         # then the winner will be the one with maximum step
         if not self.baseTaken:
             self.guests.append({'ID':pk, 'Remaining': steps, 'Execution': execTime})
-            print(f'{pk} enters {self.name}:{self.points}:{self.color}')
+            #print(f'{pk} enters {self.name}:{self.points}:{self.color}')
 
     def andTheWinnerIs(self):
         # return winner if there is one
