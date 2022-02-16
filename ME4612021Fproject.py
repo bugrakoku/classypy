@@ -155,6 +155,7 @@ class aBase():
         # then the winner will be the one with maximum step
         if not self.baseTaken:
             self.guests.append({'ID':pk, 'Remaining': steps, 'Execution': execTime})
+            print(f'{pk} enters {self.name}:{self.points}:{self.color}')
 
     def andTheWinnerIs(self):
         # return winner if there is one
@@ -237,9 +238,13 @@ class daMaze():
         for baseK in self.bases:
             pk, pt = self.bases[baseK].andTheWinnerIs()
             if pt > -1: # this is not john doe
-                res[pk] = pt
+                # check if pk is already in the dictionary
+                if pk in res.keys(): # than we have at least 1 point already registered
+                    res[pk].append(pt) # add the point to the end
+                else:
+                    res[pk] = [pt] # add a list with the first point in it
         return res
-    
+
     def RemainingPoints(self):
         # returns the remaining points on the current game board
         res = 0
@@ -356,7 +361,7 @@ class LetsPlayAGame():
             if self.Players[pk][-1] > 0:
                 tStart = time.perf_counter()
                 signal.setitimer(signal.ITIMER_REAL, timeout_for_players)
-                #path = player.run(self.maze, info)
+                path = player.run(self.maze, info)
                 try:
                     path = player.run(self.maze, info)
                 except Exception as e:
@@ -412,18 +417,19 @@ class LetsPlayAGame():
                 # assume last point in fullP is reachable 
                 self.Players[pk][-2] = fullP[-1]
             # if pk is a winner of more than 0 points provide details:
-            if pk in winners.keys() and winners[pk] > 0: 
-                self.Players[pk][-1] -= winners[pk]
-                mess += f'{"{0: >10}".format(pk)}({self.Players[pk][1]}) currently has {self.Players[pk][-1]} points -> {self.Players[pk][-1] + winners[pk]}-{winners[pk]}={self.Players[pk][-1]}\n'
-                self.Players[pk][2][-1].append(winners[pk])
+            if pk in winners.keys() and sum(winners[pk]) > 0: 
+                self.Players[pk][-1] -= sum(winners[pk])
+                mess += f'{"{0: >10}".format(pk)}({self.Players[pk][1]}) currently has {self.Players[pk][-1]} points -> {self.Players[pk][-1] + sum(winners[pk])}-{sum(winners[pk])}={self.Players[pk][-1]}\n'
+                self.Players[pk][2][-1].append(sum(winners[pk]))
             else:
                 mess += f'{"{0: >10}".format(pk)}({self.Players[pk][1]}) currently has {self.Players[pk][-1]} points\n'
                 self.Players[pk][2][-1].append(0)
 
+
         # finally increment step
         self.numSteps += 1
         # finally return the winners that has more than 0 points, and a session summary
-        return {f'{pk}':winners[pk] for pk in winners.keys() if winners[pk]>0}, mess
+        return {f'{pk}':sum(winners[pk]) for pk in winners.keys() if sum(winners[pk])>0}, mess
 
     @staticmethod
     def GenerateInfo(Players):
@@ -447,3 +453,4 @@ class LetsPlayAGame():
         '''
         if printIt:
             print(mess)
+        
