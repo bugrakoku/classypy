@@ -361,7 +361,7 @@ class LetsPlayAGame():
             if self.Players[pk][-1] > 0:
                 tStart = time.perf_counter()
                 signal.setitimer(signal.ITIMER_REAL, timeout_for_players)
-                path = player.run(self.maze, info)
+                #path = player.run(self.maze, info)
                 try:
                     path = player.run(self.maze, info)
                 except Exception as e:
